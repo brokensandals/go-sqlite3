@@ -49,6 +49,12 @@ func doneTrampoline(ctx *C.sqlite3_context) {
 	ai.Done(ctx)
 }
 
+//export updateHookTrampoline
+func updateHookTrampoline(handle uintptr, op int, db *C.char, table *C.char, rowid int64) {
+	callback := lookupHandle(handle).(func(int, string, string, int64))
+	callback(op, C.GoString(db), C.GoString(table), rowid)
+}
+
 // Use handles to avoid passing Go pointers to C.
 
 type handleVal struct {

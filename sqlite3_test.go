@@ -1279,6 +1279,37 @@ func TestAggregatorRegistration(t *testing.T) {
 	}
 }
 
+func TestUpdateHook(t *testing.T) {
+	var events []string
+
+	sql.Register("sqlite3_UpdateHook", &SQLiteDriver{
+		UpdateHook: func(op int, db string, table string, rowid int64) {
+			events = append(events, fmt.Sprintf("update op=%v db=%v table=%v rowid=%v", op, db, table, rowid))
+		},
+	})
+	db, err := sql.Open("sqlite3_UpdateHook", ":memory:")
+	if err != nil {
+		t.Fatal("Failed to open database:", err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec("create table foo (id integer primary key)")
+	if err != nil {
+		t.Fatal("Failed to create table:", err)
+	}
+	_, err = db.Exec("insert into foo values (9)")
+	if err != nil {
+		t.Fatal("Failed to insert test data:", err)
+	}
+
+	var expected = []string{
+		fmt.Sprintf("update op=%v db=main table=foo rowid=9", SQLITE_INSERT),
+	}
+	if !reflect.DeepEqual(events, expected) {
+		t.Errorf("Expected notifications %v but got %v", expected, events)
+	}
+}
+
 var customFunctionOnce sync.Once
 
 func BenchmarkCustomFunctions(b *testing.B) {

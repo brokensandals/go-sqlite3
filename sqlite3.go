@@ -91,6 +91,7 @@ int _sqlite3_create_function(
 void callbackTrampoline(sqlite3_context*, int, sqlite3_value**);
 void stepTrampoline(sqlite3_context*, int, sqlite3_value**);
 void doneTrampoline(sqlite3_context*);
+void updateHookTrampoline(void*, int, char*, char*, sqlite3_int64);
 */
 import "C"
 import (
@@ -138,10 +139,17 @@ func Version() (libVersion string, libVersionNumber int, sourceId string) {
 	return libVersion, libVersionNumber, sourceId
 }
 
+const (
+	SQLITE_DELETE = C.SQLITE_DELETE
+	SQLITE_INSERT = C.SQLITE_INSERT
+	SQLITE_UPDATE = C.SQLITE_UPDATE
+)
+
 // Driver struct.
 type SQLiteDriver struct {
 	Extensions  []string
 	ConnectHook func(*SQLiteConn) error
+	UpdateHook  func(int, string, string, int64)
 }
 
 // Conn struct.
@@ -700,6 +708,10 @@ func (d *SQLiteDriver) Open(dsn string) (driver.Conn, error) {
 		}
 	}
 	runtime.SetFinalizer(conn, (*SQLiteConn).Close)
+
+	if d.UpdateHook != nil {
+		C.sqlite3_update_hook(db, (*[0]byte)(unsafe.Pointer(C.updateHookTrampoline)), unsafe.Pointer(newHandle(conn, d.UpdateHook)))
+	}
 	return conn, nil
 }
 

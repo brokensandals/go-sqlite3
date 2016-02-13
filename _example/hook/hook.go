@@ -15,6 +15,12 @@ func main() {
 				sqlite3conn = append(sqlite3conn, conn)
 				return nil
 			},
+			UpdateHook: func(op int, db string, table string, rowid int64) {
+				switch op {
+				case sqlite3.SQLITE_INSERT:
+					log.Println("Notified of insert on db", db, "table", table, "rowid", rowid)
+				}
+			},
 		})
 	os.Remove("./foo.db")
 	os.Remove("./bar.db")
