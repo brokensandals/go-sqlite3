@@ -1285,7 +1285,7 @@ func TestUpdateHook(t *testing.T) {
 	sql.Register("sqlite3_UpdateHook", &SQLiteDriver{
 		ConnectHook: func(conn *SQLiteConn) error {
 			conn.RegisterUpdateHook(func(op int, db string, table string, rowid int64) {
-				events = append(events, fmt.Sprintf("update op=%v db=%v table=%v rowid=%v", op, db, table, rowid))
+				events = append(events, fmt.Sprintf("update(op=%v db=%v table=%v rowid=%v)", op, db, table, rowid))
 			})
 			return nil
 		},
@@ -1296,17 +1296,23 @@ func TestUpdateHook(t *testing.T) {
 	}
 	defer db.Close()
 
-	_, err = db.Exec("create table foo (id integer primary key)")
-	if err != nil {
-		t.Fatal("Failed to create table:", err)
+	statements := []string{
+		"create table foo (id integer primary key)",
+		"insert into foo values (9)",
+		"update foo set id = 99 where id = 9",
+		"delete from foo where id = 99",
 	}
-	_, err = db.Exec("insert into foo values (9)")
-	if err != nil {
-		t.Fatal("Failed to insert test data:", err)
+	for _, statement := range statements {
+		_, err = db.Exec(statement)
+		if err != nil {
+			t.Fatalf("Unable to prepare test data [%v]: %v", statement, err)
+		}
 	}
 
 	var expected = []string{
-		fmt.Sprintf("update op=%v db=main table=foo rowid=9", SQLITE_INSERT),
+		fmt.Sprintf("update(op=%v db=main table=foo rowid=9)", SQLITE_INSERT),
+		fmt.Sprintf("update(op=%v db=main table=foo rowid=99)", SQLITE_UPDATE),
+		fmt.Sprintf("update(op=%v db=main table=foo rowid=99)", SQLITE_DELETE),
 	}
 	if !reflect.DeepEqual(events, expected) {
 		t.Errorf("Expected notifications %v but got %v", expected, events)
