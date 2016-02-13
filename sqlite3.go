@@ -314,7 +314,11 @@ func (tx *SQLiteTx) Rollback() error {
 // removed. If callback is nil the existing hook (if any) will be removed
 // without creating a new one.
 func (c *SQLiteConn) RegisterCommitHook(callback func() int) {
-	C.sqlite3_commit_hook(c.db, (*[0]byte)(unsafe.Pointer(C.commitHookTrampoline)), unsafe.Pointer(newHandle(c, callback)))
+	if callback == nil {
+		C.sqlite3_commit_hook(c.db, nil, nil)
+	} else {
+		C.sqlite3_commit_hook(c.db, (*[0]byte)(unsafe.Pointer(C.commitHookTrampoline)), unsafe.Pointer(newHandle(c, callback)))
+	}
 }
 
 // RegisterRollbackHook sets the rollback hook for a connection.
@@ -323,7 +327,11 @@ func (c *SQLiteConn) RegisterCommitHook(callback func() int) {
 // removed. If callback is nil the existing hook (if any) will be removed
 // without creating a new one.
 func (c *SQLiteConn) RegisterRollbackHook(callback func()) {
-	C.sqlite3_rollback_hook(c.db, (*[0]byte)(unsafe.Pointer(C.rollbackHookTrampoline)), unsafe.Pointer(newHandle(c, callback)))
+	if callback == nil {
+		C.sqlite3_rollback_hook(c.db, nil, nil)
+	} else {
+		C.sqlite3_rollback_hook(c.db, (*[0]byte)(unsafe.Pointer(C.rollbackHookTrampoline)), unsafe.Pointer(newHandle(c, callback)))
+	}
 }
 
 // RegisterUpdateHook sets the update hook for a connection.
@@ -336,7 +344,11 @@ func (c *SQLiteConn) RegisterRollbackHook(callback func()) {
 // removed. If callback is nil the existing hook (if any) will be removed
 // without creating a new one.
 func (c *SQLiteConn) RegisterUpdateHook(callback func(int, string, string, int64)) {
-	C.sqlite3_update_hook(c.db, (*[0]byte)(unsafe.Pointer(C.updateHookTrampoline)), unsafe.Pointer(newHandle(c, callback)))
+	if callback == nil {
+		C.sqlite3_update_hook(c.db, nil, nil)
+	} else {
+		C.sqlite3_update_hook(c.db, (*[0]byte)(unsafe.Pointer(C.updateHookTrampoline)), unsafe.Pointer(newHandle(c, callback)))
+	}
 }
 
 // RegisterFunc makes a Go function available as a SQLite function.
