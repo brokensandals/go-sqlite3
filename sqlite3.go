@@ -91,6 +91,8 @@ int _sqlite3_create_function(
 void callbackTrampoline(sqlite3_context*, int, sqlite3_value**);
 void stepTrampoline(sqlite3_context*, int, sqlite3_value**);
 void doneTrampoline(sqlite3_context*);
+int commitHookTrampoline(void*);
+void rollbackHookTrampoline(void*);
 void updateHookTrampoline(void*, int, char*, char*, sqlite3_int64);
 */
 import "C"
@@ -302,6 +304,26 @@ func (tx *SQLiteTx) Commit() error {
 func (tx *SQLiteTx) Rollback() error {
 	_, err := tx.c.exec("ROLLBACK")
 	return err
+}
+
+// RegisterCommitHook sets the commit hook for a connection.
+//
+// If the callback returns non-zero the transaction will become a rollback.
+//
+// If there is an existing commit hook for this connection, it will be
+// removed. If callback is nil the existing hook (if any) will be removed
+// without creating a new one.
+func (c *SQLiteConn) RegisterCommitHook(callback func() int) {
+	C.sqlite3_commit_hook(c.db, (*[0]byte)(unsafe.Pointer(C.commitHookTrampoline)), unsafe.Pointer(newHandle(c, callback)))
+}
+
+// RegisterRollbackHook sets the rollback hook for a connection.
+//
+// If there is an existing rollback hook for this connection, it will be
+// removed. If callback is nil the existing hook (if any) will be removed
+// without creating a new one.
+func (c *SQLiteConn) RegisterRollbackHook(callback func()) {
+	C.sqlite3_rollback_hook(c.db, (*[0]byte)(unsafe.Pointer(C.rollbackHookTrampoline)), unsafe.Pointer(newHandle(c, callback)))
 }
 
 // RegisterUpdateHook sets the update hook for a connection.

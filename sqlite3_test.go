@@ -1279,11 +1279,19 @@ func TestAggregatorRegistration(t *testing.T) {
 	}
 }
 
-func TestUpdateHook(t *testing.T) {
+func TestUpdateAndTransactionHooks(t *testing.T) {
 	var events []string
+	var commitHookReturn = 0
 
 	sql.Register("sqlite3_UpdateHook", &SQLiteDriver{
 		ConnectHook: func(conn *SQLiteConn) error {
+			conn.RegisterCommitHook(func() int {
+				events = append(events, "commit")
+				return commitHookReturn
+			})
+			conn.RegisterRollbackHook(func() {
+				events = append(events, "rollback")
+			})
 			conn.RegisterUpdateHook(func(op int, db string, table string, rowid int64) {
 				events = append(events, fmt.Sprintf("update(op=%v db=%v table=%v rowid=%v)", op, db, table, rowid))
 			})
@@ -1309,10 +1317,23 @@ func TestUpdateHook(t *testing.T) {
 		}
 	}
 
+	commitHookReturn = 1
+	_, err = db.Exec("insert into foo values (5)")
+	if err == nil {
+		t.Error("Commit hook failed to rollback transaction")
+	}
+
 	var expected = []string{
+		"commit",
 		fmt.Sprintf("update(op=%v db=main table=foo rowid=9)", SQLITE_INSERT),
+		"commit",
 		fmt.Sprintf("update(op=%v db=main table=foo rowid=99)", SQLITE_UPDATE),
+		"commit",
 		fmt.Sprintf("update(op=%v db=main table=foo rowid=99)", SQLITE_DELETE),
+		"commit",
+		fmt.Sprintf("update(op=%v db=main table=foo rowid=5)", SQLITE_INSERT),
+		"commit",
+		"rollback",
 	}
 	if !reflect.DeepEqual(events, expected) {
 		t.Errorf("Expected notifications %v but got %v", expected, events)
