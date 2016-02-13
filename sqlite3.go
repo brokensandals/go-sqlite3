@@ -149,7 +149,6 @@ const (
 type SQLiteDriver struct {
 	Extensions  []string
 	ConnectHook func(*SQLiteConn) error
-	UpdateHook  func(int, string, string, int64)
 }
 
 // Conn struct.
@@ -303,6 +302,19 @@ func (tx *SQLiteTx) Commit() error {
 func (tx *SQLiteTx) Rollback() error {
 	_, err := tx.c.exec("ROLLBACK")
 	return err
+}
+
+// RegisterUpdateHook sets the update hook for a connection.
+//
+// The parameters to the callback are the operation (one of the constants
+// SQLITE_INSERT, SQLITE_DELETE, or SQLITE_UPDATE), the database name, the
+// table name, and the rowid.
+//
+// If there is an existing update hook for this connection, it will be
+// removed. If callback is nil the existing hook (if any) will be removed
+// without creating a new one.
+func (c *SQLiteConn) RegisterUpdateHook(callback func(int, string, string, int64)) {
+	C.sqlite3_update_hook(c.db, (*[0]byte)(unsafe.Pointer(C.updateHookTrampoline)), unsafe.Pointer(newHandle(c, callback)))
 }
 
 // RegisterFunc makes a Go function available as a SQLite function.
@@ -708,10 +720,6 @@ func (d *SQLiteDriver) Open(dsn string) (driver.Conn, error) {
 		}
 	}
 	runtime.SetFinalizer(conn, (*SQLiteConn).Close)
-
-	if d.UpdateHook != nil {
-		C.sqlite3_update_hook(db, (*[0]byte)(unsafe.Pointer(C.updateHookTrampoline)), unsafe.Pointer(newHandle(conn, d.UpdateHook)))
-	}
 	return conn, nil
 }
 

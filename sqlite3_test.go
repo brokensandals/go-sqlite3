@@ -1283,8 +1283,11 @@ func TestUpdateHook(t *testing.T) {
 	var events []string
 
 	sql.Register("sqlite3_UpdateHook", &SQLiteDriver{
-		UpdateHook: func(op int, db string, table string, rowid int64) {
-			events = append(events, fmt.Sprintf("update op=%v db=%v table=%v rowid=%v", op, db, table, rowid))
+		ConnectHook: func(conn *SQLiteConn) error {
+			conn.RegisterUpdateHook(func(op int, db string, table string, rowid int64) {
+				events = append(events, fmt.Sprintf("update op=%v db=%v table=%v rowid=%v", op, db, table, rowid))
+			})
+			return nil
 		},
 	})
 	db, err := sql.Open("sqlite3_UpdateHook", ":memory:")
